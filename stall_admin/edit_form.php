@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch form details
 $stmt = $conn->prepare("
-    SELECT rf.*, fs.stall_name 
+    SELECT rf.*, fs.stall_name
     FROM review_forms rf
     JOIN food_stalls fs ON rf.food_stall_id = fs.id
     WHERE rf.form_hash = ?
@@ -79,6 +79,7 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
     <title>Edit Form: <?= htmlspecialchars($form["form_title"]) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -277,7 +278,7 @@ $conn->close();
                 <?php else: ?>
                     <?php foreach ($form_structure as $sectionIndex => $section): ?>
                         <div class="form-section" data-section-index="<?= $sectionIndex ?>">
-                         
+
 
                             <div class="mb-3">
                                 <label for="sectionTitle_<?= $sectionIndex ?>" class="form-label">Section Title</label>
@@ -367,21 +368,21 @@ $conn->close();
                                                         </div>
                                                     </div>
                                                 <?php endforeach; ?>
-                                                
+
                                             </div>
                                         <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
 
-                           
+
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
 
             <div class="text-center p-4">
-             
+
                 <button type="submit" class="btn btn-submit">
                     <i class="fas fa-save me-2"></i>Save Changes
                 </button>

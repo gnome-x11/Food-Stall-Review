@@ -1,4 +1,7 @@
 <?php
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 require_once "../config/db_config.php";
 
@@ -10,26 +13,33 @@ if (!isset($_SESSION["super_admin_logged_in"])) {
 // Handle CRUD operations
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST["create_stall"])) {
-                // Handle stall creation
-                $stall_name = $_POST["stall_name"];
-                $description = $_POST["description"];
-                $username = $_POST["username"];
-                $password = password_hash($_POST["password"], PASSWORD_DEFAULT);
+        $stall_name = $_POST["stall_name"];
+        $description = $_POST["description"];
+        $username = $_POST["username"];
+        $password = password_hash($_POST["password"], PASSWORD_DEFAULT);
+        $filename = null;
 
-                $stmt = $conn->prepare("INSERT INTO food_stalls (stall_name, description, username, password) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("ssss", $stall_name, $description, $username, $password);
-                $stmt->execute();
-                $new_stall_id = $stmt->insert_id;
+        // Handle image upload if a file was uploaded
+        if (isset($_FILES['imagePath']) && $_FILES['imagePath']['tmp_name'] != '') {
+            $stall_img = '../stall_img/';
+            $filename = time() . '_' . basename($_FILES['imagePath']['name']);
+            $filepath = $stall_img . $filename;
 
-                // Handle image upload
-                if (isset($_FILES["logo"]) && $_FILES["logo"]["error"] == UPLOAD_ERR_OK) {
-                    $target_dir = "../assets/img/";
-                    $target_file = $target_dir . $new_stall_id . ".jpg";
-                    move_uploaded_file($_FILES["logo"]["tmp_name"], $target_file);
-                }
+            if (!move_uploaded_file($_FILES['imagePath']['tmp_name'], $filepath)) {
+                die(json_encode(["status" => "error", "message" => "Failed to upload image."]));
+            }
+        }
 
-                header("Location: superadmin_dashboard.php");
-                exit();
+        // Prepare and execute insert statement
+        $stmt = $conn->prepare("INSERT INTO food_stalls (stall_name, description, username, password, imagePath) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $stall_name, $description, $username, $password, $filename);
+        $stmt->execute();
+        $new_stall_id = $stmt->insert_id;
+
+        header("Location: superadmin_dashboard.php");
+        exit();
+
+
 
     } elseif (isset($_POST["delete_stall"])) {
         // Handle delete
@@ -38,13 +48,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bind_param("i", $stall_id);
         $stmt->execute();
 
-        $image_path = "../assets/img/" . $stall_id . ".jpg";
+        $image_path = "../stall_img/" . $stall_id . ".jpg";
         if (file_exists($image_path)) {
             unlink($image_path);
         }
 
         header("Location: superadmin_dashboard.php");
         exit();
+
+
     } elseif (isset($_POST["edit_stall"])) {
         // Handle edit
         $stall_id = $_POST["stall_id"];
@@ -53,9 +65,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $username = $_POST["username"];
         $password = !empty($_POST["password"]) ? password_hash($_POST["password"], PASSWORD_DEFAULT) : null;
 
-        $sql = "UPDATE food_stalls SET stall_name = ?, description = ?, username = ?";
-        $params = [$stall_name, $description, $username];
-        $types = "sss";
+        $stmt = $conn->prepare("SELECT imagePath FROM food_stalls WHERE id = ?");
+        $stmt->bind_param("i", $stall_id);
+        $stmt->execute();
+        $stmt->bind_result($current_image);
+        $stmt->fetch();
+        $stmt->close();
+
+        $filename = $current_image;
+
+        // If a new file is uploaded, process it
+         if (isset($_FILES['imagePath']) && $_FILES['imagePath']['tmp_name'] !== '') {
+             $stall_img = '../stall_img/';
+             $filename = time() . '_' . basename($_FILES['imagePath']['name']);
+             $filepath = $stall_img . $filename;
+
+             if (move_uploaded_file($_FILES['imagePath']['tmp_name'], $filepath)) {
+                 // Optional: Delete old image file
+                 if (!empty($current_image) && file_exists('../stall_img/' . $current_image)) {
+                     unlink('../stall_img/' . $current_image);
+                 }
+             } else {
+                 die(json_encode(["status" => "error", "message" => "Image upload failed."]));
+             }
+         }
+
+        $sql = "UPDATE food_stalls SET stall_name = ?, description = ?, username = ?, imagePath = ?";
+        $params = [$stall_name, $description, $username, $filename];
+        $types = "ssss";
 
         if ($password) {
             $sql .= ", password = ?";
@@ -71,11 +108,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
 
-        if (isset($_FILES["logo"]) && $_FILES["logo"]["error"] == UPLOAD_ERR_OK) {
-            $target_dir = "../assets/img/";
-            $target_file = $target_dir . $stall_id . ".jpg";
-            move_uploaded_file($_FILES["logo"]["tmp_name"], $target_file);
-        }
 
         header("Location: superadmin_dashboard.php");
         exit();
@@ -190,7 +222,7 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
                             <input type="password" name="password" class="form-control" placeholder="Password" required>
                         </div>
                         <div class="col-md-2">
-                            <input type="file" name="logo" class="form-control" accept="image/*">
+                            <input type="file" name="imagePath">
                         </div>
                         <div class="col-md-12">
                             <button type="submit" name="create_stall" class="btn btn-primary">Add Stall</button>
@@ -203,9 +235,10 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
         <!-- Stalls Grid -->
         <div class="row g-4">
             <?php while ($stall = $stalls->fetch_assoc()):
-                $logo_path = "../assets/img/" . $stall["id"] . ".jpg";
-                $default_logo = "../assets/img/default.jpg";
-                $stall_logo = file_exists($logo_path) ? $logo_path : $default_logo;
+            $imagePath = $stall["imagePath"] ?? '';
+            $filename = (!empty($imagePath) && file_exists("../stall_img/" . $imagePath)) ? "../stall_img/" . $imagePath : "../assets/img/default.jpg";
+
+
             ?>
             <div class="col-md-6 col-lg-4">
                 <div class="card stall-card h-100">
@@ -220,7 +253,7 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
                         <button class="btn btn-danger btn-custom delete-btn" data-id="<?= $stall['id'] ?>">Delete</button>
                     </div>
                     <div class="logo-container">
-                        <img src="<?= $stall_logo ?>" alt="<?= htmlspecialchars($stall["stall_name"]) ?>" class="stall-logo">
+                        <img src="<?= $filename ?>" alt="<?= htmlspecialchars($stall["stall_name"]) ?>" class="stall-logo">
                     </div>
                     <div class="card-body">
                         <h5 class="card-title"><?= htmlspecialchars($stall["stall_name"]) ?></h5>

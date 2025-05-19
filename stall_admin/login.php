@@ -7,9 +7,7 @@ require_once "../config/db_config.php";
 $error = "";
 $stall_id = isset($_GET["stall_id"]) ? intval($_GET["stall_id"]) : 0;
 $stall_name = "Food Stall";
-$logo_path = "../assets/img/{$stall_id}.jpg";
-$default_logo = "assets/img/default.jpg";
-$stall_logo = file_exists($logo_path) ? $logo_path : $default_logo;
+$filename = "../stall_img";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stall_id = isset($_POST["stall_id"]) ? intval($_POST["stall_id"]) : 0;
@@ -50,18 +48,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 if ($stall_id > 0) {
     try {
-        $stmt = $conn->prepare(
-            "SELECT stall_name FROM food_stalls WHERE id = ?"
-        );
+        $stmt = $conn->prepare("SELECT stall_name, imagePath FROM food_stalls WHERE id = ?");
         $stmt->bind_param("i", $stall_id);
         $stmt->execute();
         $result = $stmt->get_result();
         if ($result->num_rows > 0) {
             $stall = $result->fetch_assoc();
             $stall_name = $stall["stall_name"];
+            $imagePath = $stall["imagePath"] ?? '';
+            if (!empty($imagePath) && file_exists("../stall_img/" . $imagePath)) {
+                $filename = "../stall_img/" . $imagePath;
+            }
         }
         $stmt->close();
     } catch (Exception $e) {
+        // Optional: log error
     }
 }
 
@@ -77,6 +78,7 @@ if (isset($conn) && $conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manager Login - <?= htmlspecialchars($stall_name) ?></title>
+        <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="../assets/img/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -185,7 +187,7 @@ if (isset($conn) && $conn) {
     <div class="container">
         <div class="login-card">
             <div class="logo-container">
-                <img src="<?= $stall_logo ?>" alt="<?= htmlspecialchars(
+                <img src="<?= $filename ?>" alt="<?= htmlspecialchars(
                       $stall_name
                   ) ?>" class="stall-logo">
             </div>

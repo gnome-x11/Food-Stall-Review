@@ -8,11 +8,11 @@ require_once "../config/db_config.php";
 
 // Fetch food stalls from database
 $stalls = [];
-$query = "SELECT id, stall_name, description FROM food_stalls"; //food_stalls ay table 
+$query = "SELECT id, stall_name, description, imagePath FROM food_stalls"; //food_stalls ay table
 $result = $conn->query($query);
 if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $row["logo"] = "../assets/img/" . $row["id"] . ".jpg"; // Adjust path as needed
+        $row["logo"] = "../stall_img" . $row["imagePath"] . ".jpg"; // Adjust path as needed
         $stalls[] = $row;
     }
 }
@@ -108,8 +108,9 @@ $conn->close();
         }
 
         .stall-logo {
-            max-height: 100%;
+
             max-width: 100%;
+            aspect-ratio: 16 / 9;
             object-fit: contain;
             transition: transform 0.3s ease;
         }
@@ -141,18 +142,17 @@ $conn->close();
 
     <div class="container py-5">
         <div class="row g-4">
-            <?php foreach ($stalls as $stall): ?>
+            <?php foreach ($stalls as $stall):
+            $imagePath = $stall["imagePath"] ?? '';
+            $filename = (!empty($imagePath) && file_exists("../stall_img/" . $imagePath)) ? "../stall_img/" . $imagePath : "../assets/img/default.jpg";
+ ?>
+
                 <a href="login.php?stall_id=<?= $stall[
                     "id"
                 ] ?>" class="col-md-6 col-lg-4 card-link">
                     <div class="card stall-card h-100">
                         <div class="logo-container">
-                            <img src="<?= $stall[
-                                "logo"
-                            ] ?>" alt="<?= htmlspecialchars(
-    $stall["stall_name"]
-) ?>"
-                                class="stall-logo">
+                            <img src="<?= $filename ?>" alt="<?= htmlspecialchars($stall["stall_name"]) ?>" class="stall-logo">
                         </div>
                         <div class="card-content">
                             <h5 class="card-title"><?= htmlspecialchars(
