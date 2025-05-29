@@ -1,58 +1,55 @@
 <?php
-
+require_once('../header-control.php');
 session_start();
 require_once('../config/db_config.php');
+require_once("../jwt_validator.php");
 
-if (!isset($_SESSION["stall_id"])) {
-    header("Location: ../stall_admin/stall_selection.php");
-    exit();
-}
+// Validate JWT token
+$decoded = validateToken("stall_admin_token", "../stall_admin/dashboard.php");
+$id = $decoded->uid;
+$username = $decoded->username;
 
-// Function to get the server's local IP address
+// Safe local IP function
 function getLocalIP()
 {
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-    socket_connect($sock, "8.8.8.8", 53);
-    socket_getsockname($sock, $name);
-    socket_close($sock);
-    return $name;
+    $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    if (!$sock) return "localhost"; // fallback
+    @socket_connect($sock, "8.8.8.8", 53);
+    @socket_getsockname($sock, $name);
+    @socket_close($sock);
+    return $name ?: "localhost";
 }
 
 $local_ip = getLocalIP();
-$stall_id = $_SESSION["stall_id"];
 
-// Fetch stall details
+// Get stall name
 $stmt = $conn->prepare("SELECT stall_name FROM food_stalls WHERE id = ?");
-$stmt->bind_param("i", $stall_id);
+$stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 $stall = $result->fetch_assoc();
 $stmt->close();
 
-// Handle form deletion
+// Define stall_id for later use
+$stall_id = $id;
+
+// Handle deletion
 if (isset($_POST["delete_form"])) {
     $form_id = intval($_POST["form_id"]);
-
-    $stmt = $conn->prepare(
-        "DELETE FROM review_forms WHERE id = ? AND food_stall_id = ?"
-    );
+    $stmt = $conn->prepare("DELETE FROM review_forms WHERE id = ? AND food_stall_id = ?");
     $stmt->bind_param("ii", $form_id, $stall_id);
-
     if ($stmt->execute()) {
         $_SESSION["success_message"] = "Review form deleted successfully!";
     } else {
         $_SESSION["error_message"] = "Error deleting form: " . $conn->error;
     }
     $stmt->close();
-
     header("Location: manage_reviews.php");
     exit();
 }
 
-// Fetch all review forms for this stall
-$stmt = $conn->prepare(
-    "SELECT id, form_title, form_hash, is_active, created_at FROM review_forms WHERE food_stall_id = ? ORDER BY created_at DESC"
-);
+// Get all review forms
+$stmt = $conn->prepare("SELECT id, form_title, form_hash, is_active, created_at FROM review_forms WHERE food_stall_id = ? ORDER BY created_at DESC");
 $stmt->bind_param("i", $stall_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -336,7 +333,7 @@ window.addEventListener('message', (event) => {
         if (previewFrame.src.includes('form=')) {
             loadPreview(previewFrame.src.split('form=')[1]);
         }
-        
+
         const editFrame = document.getElementById('editFrame');
         if (editFrame.src.includes('form=')) {
             loadEdit(editFrame.src.split('form=')[1]);

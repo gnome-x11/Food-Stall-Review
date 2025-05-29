@@ -126,4 +126,3 @@ if (json_last_error() !== JSON_ERROR_NONE) {
         <?php endif; ?>
     </div>
 </div>
-</div>

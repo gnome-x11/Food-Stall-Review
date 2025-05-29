@@ -3,12 +3,15 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
-require_once "../config/db_config.php";
 
-if (!isset($_SESSION["super_admin_logged_in"])) {
-    header("Location: superadmin_login.php");
-    exit();
-}
+
+require_once "../jwt_validator.php";
+
+$decoded = validateToken("super_admin_token", "superadmin_login.php");
+$id = $decoded->uid;
+$username = $decoded->username;
+
+require_once('../header-control.php');
 
 // Handle CRUD operations
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -129,7 +132,6 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
         <style>
-            /* Include all the CSS variables and styles from the stall selection page */
             :root {
                 --primary-color: #FF6B6B;
                 --secondary-color: #4ECDC4;
@@ -334,6 +336,7 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+
     $(document).ready(function() {
         // Delete Modal
         $('.delete-btn').click(function() {
@@ -357,5 +360,6 @@ $stalls = $conn->query("SELECT * FROM food_stalls");
         });
     });
     </script>
+    <script src="../callback.js"></script>
 </body>
 </html>

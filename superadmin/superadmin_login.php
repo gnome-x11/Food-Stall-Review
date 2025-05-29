@@ -1,6 +1,11 @@
 <?php
-session_start();
 require_once "../config/db_config.php";
+require_once "../vendor/autoload.php"; // Include Composer autoload
+require_once "../config.php";
+
+use Firebase\JWT\JWT;
+
+    $secret_key = JWT_WEB_TOKEN;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST["username"]);
@@ -14,17 +19,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($result->num_rows === 1) {
         $admin = $result->fetch_assoc();
         if (password_verify($password, $admin["password"])) {
-            $_SESSION["super_admin_logged_in"] = true;
-            $_SESSION["super_admin_id"] = $admin["id"];
+
+            $issuedAt   = time();
+            $expire     = $issuedAt + (60 * 60); // 1 hour
+
+            $payload = [
+                'iat' => $issuedAt,
+                'exp' => $expire,
+                'uid' => $admin["id"],
+                'username' => $admin["username"]
+            ];
+
+            $jwt = JWT::encode($payload, $secret_key, 'HS256');
+
+            // Set token in a secure cookie
+            setcookie("super_admin_token", $jwt, [
+                'expires' => $expire,
+                'httponly' => true,
+                'samesite' => 'Strict',
+                'secure' => true
+            ]);
+
+
+             echo $_COOKIE['super_admin_token'] ?? 'No token';
+
             header("Location: superadmin_dashboard.php");
             exit();
+
+
         }
     }
+
     $error = "Invalid credentials";
 }
 ?>
+
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -132,6 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="login-card">
@@ -193,4 +226,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     </script>
 </body>
+
 </html>

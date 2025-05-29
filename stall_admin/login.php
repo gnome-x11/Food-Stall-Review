@@ -1,13 +1,22 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 ob_start();
 session_start();
 require_once "../config/db_config.php";
+require_once "../vendor/autoload.php";
+require_once "../config.php";
 
-// Initialize variables
+use Firebase\JWT\JWT;
+$secret_key = JWT_WEB_TOKEN;
+
 $error = "";
 $stall_id = isset($_GET["stall_id"]) ? intval($_GET["stall_id"]) : 0;
 $stall_name = "Food Stall";
-$filename = "../stall_img";
+$filename = "../stall_img/default.png"; // fallback image
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stall_id = isset($_POST["stall_id"]) ? intval($_POST["stall_id"]) : 0;
@@ -26,26 +35,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if ($result->num_rows > 0) {
                 $stall = $result->fetch_assoc();
-
                 if (password_verify($password, $stall["password"])) {
-                    $_SESSION["stall_id"] = $stall["id"];
-                    $_SESSION["stall_name"] = $stall["stall_name"];
+                    $issuedAt = time();
+                    $expire = $issuedAt + (60 * 60); // 1 hour
 
-                    header("Location: ../stall_admin/dashboard.php");
+                    $payload = [
+                        'iat' => $issuedAt,
+                        'exp' => $expire,
+                        'uid' => $stall["id"],
+                        'username' => $stall["stall_name"]
+                    ];
+
+                    $jwt = JWT::encode($payload, $secret_key, 'HS256');
+
+                    setcookie("stall_admin_token", $jwt, [
+                        'expires' => $expire,
+                        'httponly' => true,
+                        'samesite' => 'Strict',
+                        'secure' => true
+                    ]);
+
+                    header("Location: dashboard.php");
                     exit();
                 } else {
-                    $error = "Incorrect password. Please try again.";
+                    $error = "Invalid password.";
                 }
             } else {
-                $error = "No account found with this username.";
+                $error = "Invalid stall ID or username.";
             }
-            $stmt->close();
         } catch (Exception $e) {
-            $error = "Database error. Please try again later.";
+            $error = "Something went wrong. Try again.";
         }
     }
 }
 
+// Load stall info (name and image) for display
 if ($stall_id > 0) {
     try {
         $stmt = $conn->prepare("SELECT stall_name, imagePath FROM food_stalls WHERE id = ?");
@@ -62,15 +86,17 @@ if ($stall_id > 0) {
         }
         $stmt->close();
     } catch (Exception $e) {
-        // Optional: log error
+        // Optional logging
     }
 }
 
-// Close connection if still open
+// Close DB connection
 if (isset($conn) && $conn) {
     $conn->close();
 }
 ?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -256,5 +282,4 @@ if (isset($conn) && $conn) {
         }
     </script>
 </body>
-
 </html>
