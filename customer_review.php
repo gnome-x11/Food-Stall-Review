@@ -88,12 +88,12 @@ function sendFormCopy(
         $mail->isSMTP();
         $mail->Host = "smtp.gmail.com";
         $mail->SMTPAuth = true;
-        $mail->Username = "plmunfoodstall@gmail.com";
-        $mail->Password = "ffzx koap nbxe wmjx";
+        $mail->Username = "\";
+        $mail->Password = "\";
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = 587;
 
-        $mail->setFrom("plmunfoodstall@gmail.com", "PLMUN Food Stall");
+        $mail->setFrom("\", "PLMUN Food Stall");
         $mail->addAddress($email);
         $mail->isHTML(true);
         $mail->Subject =
