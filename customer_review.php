@@ -86,7 +86,7 @@ function sendFormCopy(
 
     try {
         $mail->isSMTP();
-        $mail->Host = "smtp.gmail.com"; 
+        $mail->Host = "smtp.gmail.com";
         $mail->SMTPAuth = true;
         $mail->Username = "plmunfoodstall@gmail.com";
         $mail->Password = "ffzx koap nbxe wmjx";
