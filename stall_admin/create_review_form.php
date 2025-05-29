@@ -1,21 +1,31 @@
 <?php
+
+require_once('../header-control.php');
+
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
+
 session_start();
-require_once ('../config/db_config.php');
+require_once "../jwt_validator.php";
+require_once "../config/db_config.php";
 
-if (!isset($_SESSION["stall_id"])) {
-    header("Location: ../stall_admin/stall_selection.php");
-    exit();
-}
+$decoded = validateToken("stall_admin_token", "../stall_admin/dashboard.php");
+$id = $decoded->uid;
+$username = $decoded->username;
 
-$stall_id = $_SESSION['stall_id'];
+
 
 // Fetch stall details
 $stmt = $conn->prepare("SELECT stall_name FROM food_stalls WHERE id = ?");
-$stmt->bind_param("i", $stall_id);
+$stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 $stall = $result->fetch_assoc();
 $stmt->close();
+
+if (!$stall) {
+    die("Stall not found");
+}
 
 $logo_path = "assets/img/{$stall_id}.jpg";
 $default_logo = "assets/img/default.jpg";
@@ -26,10 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form_title = $_POST['form_title'] ?? 'Food Stall Review Form';
     $form_structure = json_encode($_POST['sections']);
     $form_hash = substr(md5(uniqid()), 0, 16);
-    
+
     $stmt = $conn->prepare("INSERT INTO review_forms (food_stall_id, form_title, form_structure, form_hash) VALUES (?, ?, ?, ?)");
     $stmt->bind_param("isss", $stall_id, $form_title, $form_structure, $form_hash);
-    
+
     if ($stmt->execute()) {
         $_SESSION['success_message'] = "Review form created successfully!";
         header("Location: manage_reviews.php");
@@ -81,7 +91,7 @@ $default_sections = [
                     ['label' => 'Freshness', 'required' => true]
                 ]
             ],
-            
+
         ]
     ],
     [
@@ -340,7 +350,7 @@ $default_sections = [
         // Initialize form with default sections if empty
         document.addEventListener('DOMContentLoaded', function() {
             const defaultSections = <?php echo json_encode($default_sections); ?>;
-            
+
             if (defaultSections.length > 0) {
                 defaultSections.forEach(section => {
                     addSection(section);
@@ -355,24 +365,24 @@ $default_sections = [
             const template = document.getElementById('sectionTemplate');
             const clone = template.content.cloneNode(true);
             const sectionId = Date.now();
-            
+
             const sectionElement = clone.querySelector('.section-card');
             sectionElement.dataset.sectionId = sectionId;
-            
+
             const titleInput = clone.querySelector('.section-title-input');
             const descInput = clone.querySelector('.section-desc-input');
-            
+
             if (sectionData) {
                 titleInput.value = sectionData.title;
                 descInput.value = sectionData.description;
-                
+
                 // Add fields if they exist in sectionData
                 const fieldsContainer = clone.querySelector('.section-fields');
                 sectionData.fields.forEach(field => {
                     addFieldToContainer(fieldsContainer, field.type, field);
                 });
             }
-            
+
             document.getElementById('formSections').appendChild(clone);
         }
 
@@ -385,14 +395,14 @@ $default_sections = [
         function addField(button, fieldType, fieldData = null) {
             const section = button.closest('.section-card');
             const fieldsContainer = section.querySelector('.section-fields');
-            
+
             addFieldToContainer(fieldsContainer, fieldType, fieldData);
         }
 
         // Add field to a specific container
         function addFieldToContainer(container, fieldType, fieldData = null) {
             let templateId;
-            
+
             switch (fieldType) {
                 case 'text':
                     templateId = 'textFieldTemplate';
@@ -406,22 +416,22 @@ $default_sections = [
                 default:
                     return;
             }
-            
+
             const template = document.getElementById(templateId);
             const clone = template.content.cloneNode(true);
             const fieldId = Date.now();
-            
+
             const fieldElement = clone.querySelector('.field-item');
             fieldElement.dataset.fieldId = fieldId;
             fieldElement.dataset.fieldType = fieldType;
-            
+
             const labelInput = clone.querySelector('.field-label-input');
             const requiredCheckbox = clone.querySelector('input[type="checkbox"]');
-            
+
             if (fieldData) {
                 if (labelInput) labelInput.value = fieldData.label;
                 if (requiredCheckbox) requiredCheckbox.checked = fieldData.required;
-                
+
                 // Handle dish rating labels
                 if (fieldType === 'dish' && fieldData.ratings) {
                     const ratingInputs = clone.querySelectorAll('.rating-label-input');
@@ -432,7 +442,7 @@ $default_sections = [
                     });
                 }
             }
-            
+
             container.appendChild(clone);
         }
 
@@ -444,19 +454,19 @@ $default_sections = [
         // Prepare form data before submission
         document.getElementById('reviewForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const formData = {
                 form_title: document.getElementById('form_title').value,
                 sections: []
             };
-            
+
             document.querySelectorAll('.section-card').forEach(sectionElement => {
                 const section = {
                     title: sectionElement.querySelector('.section-title-input').value,
                     description: sectionElement.querySelector('.section-desc-input').value,
                     fields: []
                 };
-                
+
                 sectionElement.querySelectorAll('.field-item').forEach(fieldElement => {
                     const fieldType = fieldElement.dataset.fieldType;
                     const field = {
@@ -464,7 +474,7 @@ $default_sections = [
                         label: fieldElement.querySelector('.field-label-input')?.value || '',
                         required: fieldElement.querySelector('input[type="checkbox"]').checked
                     };
-                    
+
                     if (fieldType === 'dish') {
                         field.ratings = [];
                         fieldElement.querySelectorAll('.rating-option').forEach(ratingOption => {
@@ -475,27 +485,27 @@ $default_sections = [
                             });
                         });
                     }
-                    
+
                     section.fields.push(field);
                 });
-                
+
                 formData.sections.push(section);
             });
-            
+
             // Create hidden input with form structure
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = 'sections';
             input.value = JSON.stringify(formData.sections);
             this.appendChild(input);
-            
+
             // Submit the form
             this.submit();
         });
 
         // Make section titles and descriptions editable
         document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('section-title') || e.target.classList.contains('section-description') || 
+            if (e.target.classList.contains('section-title') || e.target.classList.contains('section-description') ||
                 e.target.classList.contains('field-label')) {
                 makeEditable(e.target);
             }
@@ -504,21 +514,21 @@ $default_sections = [
         function makeEditable(element) {
             const originalText = element.textContent;
             const placeholder = element.dataset.placeholder || '';
-            
+
             element.innerHTML = '';
             const input = document.createElement('input');
             input.type = 'text';
             input.value = originalText;
             input.placeholder = placeholder;
             input.className = 'form-control form-control-sm d-inline-block w-auto';
-            
+
             element.appendChild(input);
             input.focus();
-            
+
             input.addEventListener('blur', function() {
                 element.textContent = input.value || placeholder;
             });
-            
+
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     element.textContent = input.value || placeholder;

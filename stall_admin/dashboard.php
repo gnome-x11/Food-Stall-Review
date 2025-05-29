@@ -1,23 +1,19 @@
 <?php
 
-error_reporting(E_ALL);
-ini_set("display_errors", 1);
+require_once('../header-control.php');
 
 session_start();
 require_once "../config/db_config.php";
+require_once "../jwt_validator.php";
 
-// Check if user is logged in and has a stall assigned
-if (!isset($_SESSION["stall_id"])) {
-    header("Location: ../stall_admin/stall_selection.php");
-    exit();
-}
+$decoded = validateToken("stall_admin_token", "../stall_admin/dashboard.php");
+$id = $decoded->uid;
+$username = $decoded->username;
 
-// Get stall ID from session
-$stall_id = $_SESSION["stall_id"];
 
 // Fetch stall details
 $stmt = $conn->prepare("SELECT stall_name FROM food_stalls WHERE id = ?");
-$stmt->bind_param("i", $stall_id);
+$stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 $stall = $result->fetch_assoc();
@@ -37,7 +33,7 @@ $stmt = $conn->prepare("SELECT
     COUNT(*) as total_today,
     AVG(rating_average) as avg_rating_today,
     SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) as positive_today
-    FROM responses 
+    FROM responses
     WHERE food_stall_id = ?
     AND DATE(created_at) = ?");
 $stmt->bind_param("is", $stall_id, $today);

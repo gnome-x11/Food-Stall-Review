@@ -1,20 +1,20 @@
 <?php
+require_once('../header-control.php');
 
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
 
 session_start();
 require_once "../config/db_config.php";
+require_once "../jwt_validator.php";
 
-if (!isset($_SESSION["stall_id"])) {
-    header("Location: ../stall_admin/stall_selection.php");
-    exit();
-}
+$decoded = validateToken("stall_admin_token", "../stall_admin/dashboard.php");
+$id = $decoded->uid;
+$username = $decoded->username;
 
-$stall_id = $_SESSION["stall_id"];
-
+// Fetch stall details
 $stmt = $conn->prepare("SELECT stall_name FROM food_stalls WHERE id = ?");
-$stmt->bind_param("i", $stall_id);
+$stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 $stall = $result->fetch_assoc();

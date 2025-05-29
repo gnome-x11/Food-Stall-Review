@@ -1,18 +1,21 @@
 <?php
+
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
 session_start();
-require_once('../config/db_config.php');
 
+require_once "../jwt_validator.php";
 
-if (!isset($_SESSION["stall_id"])) {
-    header("Location:../stall_admin/stall_selection.php");
-    exit();
-}
+$decoded = validateToken("stall_admin_token", "../stall_admin/dashboard.php");
+$id = $decoded->uid;
+$username = $decoded->username;
 
-$stall_id = $_SESSION["stall_id"];
+require_once('../header-control.php');
+require_once "../config/db_config.php";
 
-// Fetch stall details including account info
-$stmt = $conn->prepare("SELECT stall_name, description, username, password FROM food_stalls WHERE id = ?");
-$stmt->bind_param("i", $stall_id);
+// Fetch stall details
+$stmt = $conn->prepare("SELECT stall_name FROM food_stalls WHERE id = ?");
+$stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 $stall = $result->fetch_assoc();
@@ -180,7 +183,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["update_account"])) {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="confirm_password">Confirm New Password</label>
